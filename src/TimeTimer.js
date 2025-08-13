@@ -8,6 +8,81 @@ const TimeTimer = () => {
   const [inputMinutes, setInputMinutes] = useState(25);
   const [currentStyle, setCurrentStyle] = useState('classic');
   const intervalRef = useRef(null);
+  const audioContextRef = useRef(null);
+
+  // Initialize audio context
+  const initAudioContext = () => {
+    if (!audioContextRef.current) {
+      audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    return audioContextRef.current;
+  };
+
+  // Play style-specific chime
+  const playChime = (style) => {
+    const audioContext = initAudioContext();
+    
+    // Different chime patterns for each style
+    const chimePatterns = {
+      classic: () => {
+        // Simple bell tone
+        playTone(audioContext, 800, 0.5, 'sine');
+        setTimeout(() => playTone(audioContext, 600, 0.3, 'sine'), 200);
+      },
+      midcentury: () => {
+        // Warm kitchen timer ding
+        playTone(audioContext, 1000, 0.4, 'sine');
+        setTimeout(() => playTone(audioContext, 800, 0.4, 'sine'), 150);
+        setTimeout(() => playTone(audioContext, 600, 0.5, 'sine'), 300);
+      },
+      atomic: () => {
+        // Futuristic beeps
+        playTone(audioContext, 1200, 0.2, 'square');
+        setTimeout(() => playTone(audioContext, 1400, 0.2, 'square'), 250);
+        setTimeout(() => playTone(audioContext, 1600, 0.3, 'square'), 500);
+      },
+      modern: () => {
+        // Subtle notification tone
+        playTone(audioContext, 440, 0.3, 'sine');
+        setTimeout(() => playTone(audioContext, 554, 0.3, 'sine'), 200);
+        setTimeout(() => playTone(audioContext, 659, 0.4, 'sine'), 400);
+      },
+      minimal: () => {
+        // Simple single tone
+        playTone(audioContext, 600, 0.6, 'sine');
+      },
+      neon: () => {
+        // Synthwave-style chime
+        playTone(audioContext, 880, 0.3, 'sawtooth');
+        setTimeout(() => playTone(audioContext, 1100, 0.3, 'sawtooth'), 200);
+        setTimeout(() => playTone(audioContext, 1320, 0.4, 'sawtooth'), 400);
+        setTimeout(() => playTone(audioContext, 880, 0.5, 'sawtooth'), 800);
+      }
+    };
+
+    const pattern = chimePatterns[style] || chimePatterns.classic;
+    pattern();
+  };
+
+  // Generate tone with specific frequency and waveform
+  const playTone = (audioContext, frequency, duration, waveform = 'sine') => {
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+    oscillator.type = waveform;
+    
+    // Envelope for smooth sound
+    gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+    gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.01);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration);
+    
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + duration);
+  };
 
   const styles = {
     classic: {
@@ -104,6 +179,8 @@ const TimeTimer = () => {
         setTimeLeft(prev => {
           if (prev <= 1) {
             setIsRunning(false);
+            // Play chime when timer completes
+            setTimeout(() => playChime(currentStyle), 100);
             return 0;
           }
           return prev - 1;
@@ -117,6 +194,8 @@ const TimeTimer = () => {
   }, [isRunning, timeLeft]);
 
   const toggleTimer = () => {
+    // Initialize audio context on first user interaction
+    initAudioContext();
     setIsRunning(!isRunning);
   };
 
@@ -140,9 +219,9 @@ const TimeTimer = () => {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Calculate the angle for the red sector based on SET time (not remaining)
-  // The sector should show the total time set (e.g., 15 min = quarter circle)
-  const sectorAngle = (initialTime / 3600) * 360; // 3600 seconds = 60 minutes = full circle
+  // Calculate the angle for the red sector based on TIME REMAINING
+  // The sector should shrink as time passes, showing time left
+  const sectorAngle = (timeLeft / 3600) * 360; // Red sector shows remaining time
 
   return (
     <div className={`flex flex-col items-center justify-center min-h-screen p-4 ${style.background}`}>
@@ -232,7 +311,7 @@ const TimeTimer = () => {
               stroke="none"
             />
 
-            {/* Sector with enhanced styling */}
+            {/* Red sector shows remaining time - shrinks as time passes */}
             <path
               d={`M 160 160 L 160 20 A 140 140 0 ${sectorAngle > 180 ? 1 : 0} 1 ${
                 160 + 140 * Math.sin((sectorAngle * Math.PI) / 180)
@@ -244,26 +323,10 @@ const TimeTimer = () => {
                 filter: 'drop-shadow(0 0 15px currentColor)',
                 opacity: 0.9 
               } : {}}
+              className="transition-all duration-1000 ease-linear"
             />
 
-            {/* White overlay for elapsed time */}
-            {timeLeft < initialTime && (
-              <path
-                d={`M 160 160 L 160 20 A 140 140 0 ${((initialTime - timeLeft) / 3600) * 360 > 180 ? 1 : 0} 1 ${
-                  160 + 140 * Math.sin((((initialTime - timeLeft) / 3600) * 360 * Math.PI) / 180)
-                } ${
-                  160 - 140 * Math.cos((((initialTime - timeLeft) / 3600) * 360 * Math.PI) / 180)
-                } Z`}
-                fill={
-                  currentStyle === 'midcentury' ? 'url(#midcenturyGrad)' :
-                  currentStyle === 'atomic' ? 'url(#atomicGrad)' :
-                  currentStyle === 'modern' ? 'url(#modernGrad)' :
-                  currentStyle === 'neon' ? 'url(#neonGrad)' :
-                  currentStyle === 'minimal' ? '#fafafa' : 'white'
-                }
-                className="transition-all duration-1000 ease-linear"
-              />
-            )}
+            {/* Remove the white overlay - no longer needed since red sector shrinks directly */}
 
             {/* Enhanced tick marks with style variations */}
             {[...Array(60)].map((_, i) => {
@@ -461,8 +524,20 @@ const TimeTimer = () => {
 
       {/* Status */}
       {timeLeft === 0 && (
-        <div className="text-3xl font-bold text-red-500 animate-pulse mb-4">
-          Time's Up! ⏰
+        <div className="text-center mb-4">
+          <div className="text-3xl font-bold text-red-500 animate-pulse mb-2">
+            Time's Up! ⏰
+          </div>
+          <button
+            onClick={() => playChime(currentStyle)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              currentStyle === 'modern' || currentStyle === 'neon'
+                ? 'bg-gray-700 hover:bg-gray-600 text-gray-200'
+                : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+            }`}
+          >
+            🔊 Play Chime Again
+          </button>
         </div>
       )}
 
