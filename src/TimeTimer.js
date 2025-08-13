@@ -413,34 +413,13 @@ const TimeTimer = () => {
               );
             })}
 
-            {/* Enhanced center and hand */}
+            {/* Enhanced center - no hand */}
             <circle 
               cx="160" 
               cy="160" 
               r={currentStyle === 'minimal' ? "4" : currentStyle === 'midcentury' ? "8" : "6"} 
               fill={style.handColor}
               style={style.glowEffect ? { filter: 'drop-shadow(0 0 8px currentColor)' } : {}}
-            />
-            
-            {/* Enhanced hand with style variations */}
-            <line
-              x1="160"
-              y1="160"
-              x2="160"
-              y2={currentStyle === 'midcentury' ? "35" : "40"}
-              stroke={style.handColor}
-              strokeWidth={
-                currentStyle === 'minimal' ? "2" : 
-                currentStyle === 'midcentury' ? "6" : 
-                currentStyle === 'atomic' ? "3" : "4"
-              }
-              strokeLinecap="round"
-              transform={`rotate(${(initialTime - timeLeft) * 6 / 60} 160 160)`}
-              className="transition-all duration-1000 ease-linear"
-              style={style.glowEffect ? { 
-                filter: 'drop-shadow(0 0 8px currentColor)',
-                opacity: 0.9 
-              } : {}}
             />
           </svg>
         </div>
